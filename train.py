@@ -15,23 +15,24 @@ import pandas as pd
 # ========== 설정 변수 ==========
 # 모델 및 데이터셋 설정
 # MODEL_WEIGHT = "./models/yolo26s/yolo26s.pt"
-MODEL_WEIGHT = "./yolo26l.pt"
+MODEL_WEIGHT = "./yolo26s.pt"
 DATASET_CONFIG = "configs/yolo/vehicle_dataset.yaml"
-TRAIN_IMAGE_DIR = "/data/ephemeral/home/dataset/flatten_road_dataset_bb/train/images"
-VAL_IMAGE_DIR = "/data/ephemeral/home/dataset/flatten_road_dataset_bb/val/images"
+TRAIN_IMAGE_DIR = "/data/ephemeral/home/dataset/flatten_car_road_dataset_bb/train/images"
+VAL_IMAGE_DIR = "/data/ephemeral/home/dataset/flatten_car_road_dataset_bb/val/images"
 
 # 학습 설정
 EPOCHS = 40
-IMAGE_SIZE = (640, 640)
-BATCH_SIZE = 40
+IMAGE_SIZE = 640
+BATCH_SIZE = 64
 USE_AMP = True
 SEED = 42
 
 # 저장 경로 설정
 TRAIN_PROJECT = "cv-11-final"
-VERSION="v1234"
+VERSION="idx9-1"
+# VERSION="test"
 # TRAIN_NAME = f"train_yolo26s_{VERSION}"
-TRAIN_NAME = f"yolo26l_{VERSION}_e{EPOCHS}_b{BATCH_SIZE}"
+TRAIN_NAME = f"yolo26s_{VERSION}_e{EPOCHS}_b{BATCH_SIZE}"
 
 # Wandb 설정
 load_dotenv()
@@ -71,6 +72,7 @@ def print_best_epoch_info(results_csv_path):
         
         # Find the epoch with the highest fitness
         best_idx = results['fitness'].idxmax()
+        global best_epoch 
         best_epoch = int(results.loc[best_idx, 'epoch'])
         best_fitness = results.loc[best_idx, 'fitness']
         best_mAP50 = results.loc[best_idx, 'metrics/mAP50(B)']
@@ -112,20 +114,16 @@ def main():
     print()
     
     # # ========== Wandb 초기화 ==========
-    # print("[Wandb] 초기화 중...")
     # wandb_run = wandb.init(
-    #     project=WANDB_PROJECT,
-    #     entity=WANDB_ENTITY,
-    #     name=WANDB_RUN_NAME,
-    #     config={
-    #         "model": "YOLOv26s",
-    #         "dataset": "flatten_road_dataset_bb",
-    #         "epochs": EPOCHS,
-    #         "batch_size": BATCH_SIZE,
-    #         "image_size": IMAGE_SIZE,
-    #         "lr0": 0.01,  # YOLO 기본값
-    #         "amp": USE_AMP,
-    #         "seed": SEED,
+    # project=TRAIN_PROJECT,
+    # entity="cv_11",
+    # name=TRAIN_NAME,
+    # config={
+    #     "model": "YOLOv26s",
+    #     "epochs": EPOCHS,
+    #     "batch": BATCH_SIZE,
+    #     "imgsz": IMAGE_SIZE,
+    #     "seed": SEED,
     #     }
     # )
     # print(f"✓ Wandb 초기화 완료: {WANDB_PROJECT}/{WANDB_RUN_NAME}")
@@ -172,24 +170,91 @@ def main():
     print("=" * 70)
     print()
     print("📁 저장된 파일:")
-    print(f"  - 모델 가중치: {TRAIN_PROJECT}/{TRAIN_NAME}/weights/best.pt")
-    print(f"  - 학습 로그: {TRAIN_PROJECT}/{TRAIN_NAME}/")
-    print(f"  - Validation 결과: {TRAIN_PROJECT}/{TRAIN_NAME}/val_*.jpg")
+    print(f"  - 모델 가중치: runs/detect/{TRAIN_PROJECT}/{TRAIN_NAME}/weights/best.pt")
+    print(f"  - 학습 로그: runs/detect/{TRAIN_PROJECT}/{TRAIN_NAME}/")
+    print(f"  - Validation 결과: runs/detect/{TRAIN_PROJECT}/{TRAIN_NAME}/val_*.jpg")
     
     # Best epoch 정보 출력
-    results_csv_path = f"{TRAIN_PROJECT}/{TRAIN_NAME}/results.csv"
+    results_csv_path = f"runs/detect/{TRAIN_PROJECT}/{TRAIN_NAME}/results.csv"
     print_best_epoch_info(results_csv_path)
-    
-    print()
-    print("💡 추론을 수행하려면 다음 명령을 실행하세요:")
-    print(f"   python yolo26s_inference.py")
-    print()
-    print("=" * 70)
+
+
+    # ========== Step 3: Test Set Evaluation (best.pt) ==========
+    print("[Step 3] Test set evaluation with best.pt")
+    print("-" * 70)
+
+    best_model_path = f"runs/detect/{TRAIN_PROJECT}/{TRAIN_NAME}/weights/best.pt"
+    best_model = YOLO(best_model_path)
+
+    test_metrics = best_model.val(
+        data=DATASET_CONFIG,
+        split="test",
+        imgsz=IMAGE_SIZE,
+        batch=BATCH_SIZE,
+    )
+
+    print("✓ Test evaluation 완료")
+    # print(test_metrics.results_dict)
+
+
+    # print()
+    # print("💡 추론을 수행하려면 다음 명령을 실행하세요:")
+    # print(f"   python yolo26s_inference.py")
+    # print()
+    # print("=" * 70)
     
     # # Wandb 종료
     # wandb.finish()
     # print("\n✓ Wandb 로깅 완료")
 
+    test_metrics_dict = test_metrics.results_dict
+
+    print("[Test metrics]")
+    for k, v in test_metrics_dict.items():
+        print(f"{k}: {v:.5f}")
+
+    # Test 결과를 CSV 파일로 저장
+    test_results_csv_path = f"runs/detect/{TRAIN_PROJECT}/{TRAIN_NAME}/results_test_set.csv"
+    test_results_df = pd.DataFrame([{
+        'best_epoch': best_epoch,
+        'test/precision': test_metrics_dict["metrics/precision(B)"],
+        'test/recall': test_metrics_dict["metrics/recall(B)"],
+        'test/mAP50': test_metrics_dict["metrics/mAP50(B)"],
+        'test/mAP50-95': test_metrics_dict["metrics/mAP50-95(B)"],
+        'test/fitness': test_metrics_dict["fitness"],
+    }])
+    test_results_df.to_csv(test_results_csv_path, index=False)
+    # print()
+    # print(f"✓ Test 결과 저장: {test_results_csv_path}")
+    # print()
+
+    wandb.init(
+        project=TRAIN_PROJECT,
+        entity="cv_11",
+        name=TRAIN_NAME,
+        resume="allow",   # ⭐ 핵심
+    )
+
+    # wandb에 명시적으로 기록
+    wandb.log(
+        {
+            "test/precision": test_metrics_dict["metrics/precision(B)"],
+            "test/recall": test_metrics_dict["metrics/recall(B)"],
+            "test/mAP50": test_metrics_dict["metrics/mAP50(B)"],
+            "test/mAP50-95": test_metrics_dict["metrics/mAP50-95(B)"],
+            "test/fitness": test_metrics_dict["fitness"],
+        },
+        step=best_epoch,  # train 마지막 epoch 기준
+    )
+
+    # summary에도 남기기 (run 페이지 상단에 고정)
+    wandb.summary["test/mAP50"] = test_metrics_dict["metrics/mAP50(B)"]
+    wandb.summary["test/mAP50-95"] = test_metrics_dict["metrics/mAP50-95(B)"]
+    wandb.summary["test/precision"] = test_metrics_dict["metrics/precision(B)"]
+    wandb.summary["test/recall"] = test_metrics_dict["metrics/recall(B)"]
+    
+    wandb.finish()
+    print("✓ Wandb 로깅 완료")
 
 if __name__ == '__main__':
     main()

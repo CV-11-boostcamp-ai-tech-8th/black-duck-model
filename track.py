@@ -231,6 +231,7 @@ def run_tracking_on_video(model, video_path):
     print(f"   - 텍스트: runs/detect/{TRACK_PROJECT}/{TRACK_NAME_PREFIX}/{video_name}/labels/")
     print("=" * 70)
     
+    ### 시작
     # AVI 파일을 MP4로 변환
     output_dir = Path(f"runs/detect/{TRACK_PROJECT}/{TRACK_NAME_PREFIX}/{video_name}")
     avi_file = output_dir / f"{video_name}.avi"
@@ -244,7 +245,7 @@ def run_tracking_on_video(model, video_path):
         print()
         print(f"[Info] AVI 파일을 찾을 수 없습니다: {avi_file}")
         print(f"       (YOLO가 이미 MP4로 저장했거나, 다른 형식으로 저장되었을 수 있습니다)")
-
+    ### 끝
 
 def main():
     """메인 실행 함수"""

@@ -1,5 +1,6 @@
-path: /data/ephemeral/home/dataset/flatten_road_dataset_bb
+path: /data/ephemeral/home/dataset/flatten_car_road_dataset_bb
 train: train/images
 val: val/images
+test: test/images
 names:
   0: vehicle

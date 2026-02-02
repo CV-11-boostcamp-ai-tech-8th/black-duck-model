@@ -162,7 +162,7 @@ def process_dataset_split(split_name, base_dir):
 def main():
     """메인 실행 함수"""
     # 데이터셋 기본 경로 설정 (절대 경로)
-    base_dir = '/data/ephemeral/home/dataset/flatten_road_dataset_bb'
+    base_dir = '/data/ephemeral/home/dataset/flatten_car_road_dataset_bb'
     
     if not os.path.exists(base_dir):
         print(f"[Error] '{base_dir}' 폴더가 존재하지 않습니다.")
@@ -175,9 +175,9 @@ def main():
     print("=" * 60)
     print(f"데이터셋 경로: {base_dir}")
     
-    # train과 val 데이터셋 처리
+    # train, val, test 데이터셋 처리
     total_success = 0
-    for split in ['train', 'val']:
+    for split in ['train', 'val', 'test']:
         total_success += process_dataset_split(split, base_dir)
     
     print("\n" + "=" * 60)
