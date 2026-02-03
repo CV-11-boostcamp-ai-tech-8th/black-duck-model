@@ -11,3 +11,4 @@ yolo26l.pt
 yolo26m.pt
 yolo26x.pt
 wandb/
+logs/

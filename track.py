@@ -4,41 +4,16 @@
 YOLOv26s Vehicle Tracking (Video)
 - Fine-tuned vehicle detection 모델로 비디오 파일에서 tracking 수행
 - 연속된 프레임으로 더 정확한 tracking 가능
+- 모든 설정은 YAML 파일을 통해 전달됨
 """
 
 import os
 import subprocess
+import time
+import argparse
 from pathlib import Path
 from ultralytics import YOLO
-# from huggingface_hub import hf_hub_download
-
-# ========== 설정 변수 ==========
-# 모델 설정
-MODEL_WEIGHT = "./runs/detect/cv-11-final/yolo26l_v2-car-road-version_e40_b40/weights/best.pt"
-# MODEL_WEIGHT = hf_hub_download(
-#     # repo_id="rujutashashikanjoshi/yolo12-vehicles-detection-3941-100m",
-#     repo_id="wuhp/yolocar",
-#     filename="car-75e-11n.pt"
-# )
-
-# 비디오 파일 경로
-# VIDEO_PATH = "/data/ephemeral/home/dataset/20260115-11h37m24s_N.avi"
-# VIDEO_PATH = "/data/ephemeral/home/dataset/20260115-11h38m24s_N.avi"
-# VIDEO_PATH = "/data/ephemeral/home/dataset/급정거1_cropped.mp4"
-# VIDEO_PATH = "/data/ephemeral/home/dataset/daytime.mp4"
-# VIDEO_PATH = "/data/ephemeral/home/dataset/nighttime.mp4"
-VIDEO_PATH = "/data/ephemeral/home/dataset/급정거_2.mp4"
-
-# Tracking 설정
-CONF_THRESHOLD = 0.25
-IOU_THRESHOLD = 0.45
-TRACKER_TYPE = "configs/yolo/bytetrack.yaml"  # "botsort.yaml" or "bytetrack.yaml"
-
-# 저장 경로
-VERSION = "v2"
-TRACK_PROJECT = f"track"
-TRACK_NAME_PREFIX = f"yolo26l_{VERSION}"
-# ================================
+from omegaconf import OmegaConf
 
 
 def convert_avi_to_mp4(avi_path):
@@ -151,13 +126,14 @@ def convert_avi_to_mp4(avi_path):
         return None
 
 
-def run_tracking_on_video(model, video_path):
+def run_tracking_on_video(model, video_path, cfg):
     """
     비디오 파일로 tracking 수행
     
     Args:
         model: YOLO 모델
         video_path: 비디오 파일 경로
+        cfg: OmegaConf 설정 객체
     """
     video_path = Path(video_path)
     
@@ -167,26 +143,31 @@ def run_tracking_on_video(model, video_path):
     
     # 비디오 파일명 (확장자 제외)
     video_name = video_path.stem
+    track_name_prefix = f"yolo26x_{cfg.version}"
+    track_project = cfg.get('track_project', 'track')
     
     print("\n" + "=" * 70)
     print(f"Tracking 시작: {video_name}")
     print("=" * 70)
     print(f"비디오 파일: {video_path}")
-    print(f"Confidence threshold: {CONF_THRESHOLD}")
-    print(f"IoU threshold: {IOU_THRESHOLD}")
-    print(f"Tracker: {TRACKER_TYPE}")
+    print(f"Confidence threshold: {cfg.conf_threshold}")
+    print(f"IoU threshold: {cfg.iou_threshold}")
+    print(f"Tracker: {cfg.tracker_type}")
     print()
     
     # 저장 경로 구성: track/yolo26s_{VERSION}/{video_name}
-    project_path = f"{TRACK_PROJECT}/{TRACK_NAME_PREFIX}"
+    project_path = f"{track_project}/{track_name_prefix}"
+    
+    # 시간 측정 시작
+    start_time = time.time()
     
     # Tracking 수행
     results = model.track(
         source=str(video_path),
-        conf=CONF_THRESHOLD,
-        iou=IOU_THRESHOLD,
+        conf=cfg.conf_threshold,
+        iou=cfg.iou_threshold,
         persist=True,  # 프레임 간 track 유지
-        tracker=TRACKER_TYPE,
+        tracker=cfg.tracker_type,
         save=True,  # 결과 이미지 저장
         save_txt=True,  # 결과 텍스트 저장
 
@@ -206,6 +187,11 @@ def run_tracking_on_video(model, video_path):
     track_ids_seen = set()
     frame_count = 0
     
+    # YOLO speed 정보 수집
+    total_preprocess = 0
+    total_inference = 0
+    total_postprocess = 0
+    
     print("처리 중...")
     for result in results:
         frame_count += 1
@@ -215,9 +201,27 @@ def run_tracking_on_video(model, video_path):
             ids = result.boxes.id.int().cpu().tolist()
             track_ids_seen.update(ids)
         
+        # YOLO speed 정보 수집
+        if hasattr(result, 'speed') and result.speed:
+            total_preprocess += result.speed.get('preprocess', 0)
+            total_inference += result.speed.get('inference', 0)
+            total_postprocess += result.speed.get('postprocess', 0)
+        
         # 진행 상황 출력 (100 프레임마다)
         if frame_count % 100 == 0:
             print(f"  {frame_count} 프레임 처리 완료...")
+    
+    # 시간 측정 종료
+    end_time = time.time()
+    total_time = end_time - start_time
+    time_per_frame = total_time / frame_count if frame_count > 0 else 0
+    
+    # YOLO speed 평균 계산
+    avg_preprocess = total_preprocess / frame_count if frame_count > 0 else 0
+    avg_inference = total_inference / frame_count if frame_count > 0 else 0
+    avg_postprocess = total_postprocess / frame_count if frame_count > 0 else 0
+    yolo_total_time = avg_preprocess + avg_inference + avg_postprocess
+    yolo_fps = 1000 / yolo_total_time if yolo_total_time > 0 else 0
     
     print()
     print("=" * 70)
@@ -226,44 +230,56 @@ def run_tracking_on_video(model, video_path):
     print(f"총 처리 프레임: {frame_count}")
     print(f"고유 Track ID 수: {len(track_ids_seen)}")
     print()
+    print("⏱️  처리 시간:")
+    if yolo_total_time > 0:
+        print(f"   - YOLO: {avg_preprocess:.1f} + {avg_inference:.1f} + {avg_postprocess:.1f} = {yolo_total_time:.1f}ms ({yolo_fps:.1f}FPS)")
+    print(f"   - Python: {time_per_frame*1000:.1f}ms ({1/time_per_frame:.1f}FPS)")
+    print(f"   - 총 시간: {total_time:.2f}s")
+    print()
     print(f"📁 결과 저장 위치:")
-    print(f"   - 이미지: runs/detect/{TRACK_PROJECT}/{TRACK_NAME_PREFIX}/{video_name}/")
-    print(f"   - 텍스트: runs/detect/{TRACK_PROJECT}/{TRACK_NAME_PREFIX}/{video_name}/labels/")
+    print(f"   - 이미지: runs/detect/{track_project}/{track_name_prefix}/{video_name}/")
+    print(f"   - 텍스트: runs/detect/{track_project}/{track_name_prefix}/{video_name}/labels/")
     print("=" * 70)
     
     ### 시작
-    # AVI 파일을 MP4로 변환
-    output_dir = Path(f"runs/detect/{TRACK_PROJECT}/{TRACK_NAME_PREFIX}/{video_name}")
-    avi_file = output_dir / f"{video_name}.avi"
-    
-    if avi_file.exists():
-        mp4_file = convert_avi_to_mp4(avi_file)
-        if mp4_file:
+    # AVI 파일을 MP4로 변환 (설정에 따라)
+    convert_avi = cfg.get('convert_avi_to_mp4', True)
+    if convert_avi:
+        output_dir = Path(f"runs/detect/{track_project}/{track_name_prefix}/{video_name}")
+        avi_file = output_dir / f"{video_name}.avi"
+        
+        if avi_file.exists():
+            mp4_file = convert_avi_to_mp4(avi_file)
+            if mp4_file:
+                print()
+                print(f"✓ 최종 출력 파일: {mp4_file}")
+        else:
             print()
-            print(f"✓ 최종 출력 파일: {mp4_file}")
+            print(f"[Info] AVI 파일을 찾을 수 없습니다: {avi_file}")
+            print(f"       (YOLO가 이미 MP4로 저장했거나, 다른 형식으로 저장되었을 수 있습니다)")
     else:
         print()
-        print(f"[Info] AVI 파일을 찾을 수 없습니다: {avi_file}")
-        print(f"       (YOLO가 이미 MP4로 저장했거나, 다른 형식으로 저장되었을 수 있습니다)")
+        print(f"[Info] AVI → MP4 변환 스킵 (convert_avi_to_mp4 = False)")
     ### 끝
 
-def main():
+def main(cfg):
     """메인 실행 함수"""
     print("=" * 70)
     print("YOLOv26s Vehicle Tracking (Video)")
     print("=" * 70)
+    print(f"버전: {cfg.version}")
     print()
     
     # Step 1: 모델 로드
     print("[Step 1] 모델 로드")
     print("-" * 70)
-    print(f"모델: {MODEL_WEIGHT}")
+    print(f"모델: {cfg.model_weight}")
     
-    if not os.path.exists(MODEL_WEIGHT):
-        print(f"[Error] 모델 파일을 찾을 수 없습니다: {MODEL_WEIGHT}")
+    if not os.path.exists(cfg.model_weight):
+        print(f"[Error] 모델 파일을 찾을 수 없습니다: {cfg.model_weight}")
         return
     
-    model = YOLO(MODEL_WEIGHT)
+    model = YOLO(cfg.model_weight)
     print("✓ 모델 로드 완료")
     print()
     
@@ -271,11 +287,19 @@ def main():
     print("[Step 2] 비디오 Tracking")
     print("-" * 70)
     
-    run_tracking_on_video(model, VIDEO_PATH)
+    run_tracking_on_video(model, cfg.video_path, cfg)
     
     print("\n✓ 모든 작업 완료!")
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(description='YOLO Tracking with YAML config')
+    parser.add_argument('config', type=str, help='YAML 설정 파일 경로')
+    
+    args = parser.parse_args()
+    
+    # YAML 설정 로드
+    cfg = OmegaConf.load(args.config)
+    
+    main(cfg)
 

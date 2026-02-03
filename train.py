@@ -3,49 +3,17 @@
 """
 YOLOv26s Vehicle Detection - Training
 - pretrained YOLOv26s를 vehicle 데이터셋으로 파인튜닝
+- 모든 설정은 YAML 파일을 통해 전달됨
 """
 
 import os
+import argparse
 from pathlib import Path
 from ultralytics import YOLO
 import wandb
 from dotenv import load_dotenv
 import pandas as pd
-
-# ========== 설정 변수 ==========
-# 모델 및 데이터셋 설정
-# MODEL_WEIGHT = "./models/yolo26s/yolo26s.pt"
-MODEL_WEIGHT = "./yolo26s.pt"
-DATASET_CONFIG = "configs/yolo/vehicle_dataset.yaml"
-TRAIN_IMAGE_DIR = "/data/ephemeral/home/dataset/flatten_car_road_dataset_bb/train/images"
-VAL_IMAGE_DIR = "/data/ephemeral/home/dataset/flatten_car_road_dataset_bb/val/images"
-
-# 학습 설정
-EPOCHS = 40
-IMAGE_SIZE = 640
-BATCH_SIZE = 64
-USE_AMP = True
-SEED = 42
-
-# 저장 경로 설정
-TRAIN_PROJECT = "cv-11-final"
-VERSION="idx9-1"
-# VERSION="test"
-# TRAIN_NAME = f"train_yolo26s_{VERSION}"
-TRAIN_NAME = f"yolo26s_{VERSION}_e{EPOCHS}_b{BATCH_SIZE}"
-
-# Wandb 설정
-load_dotenv()
-WANDB_API_KEY = os.getenv('WANDB_API_KEY')
-os.environ["WANDB_ENTITY"] = "cv_11"
-os.environ["WANDB_API_KEY"] = WANDB_API_KEY
-wandb.login()
-
-# WANDB_PROJECT = "cv-11-final"
-# WANDB_ENTITY = "cv_11"  # 팀 이름 (본인 팀에 맞게 수정)
-# WANDB_RUN_NAME = f"yolo26s_{VERSION}_e{EPOCHS}_b{BATCH_SIZE}"  # 간단한 run name
-
-# ================================
+from omegaconf import OmegaConf
 
 
 def print_best_epoch_info(results_csv_path):
@@ -54,11 +22,14 @@ def print_best_epoch_info(results_csv_path):
     
     Args:
         results_csv_path: results.csv 파일 경로
+    
+    Returns:
+        best_epoch: best epoch 번호 (실패 시 None)
     """
     results_path = Path(results_csv_path)
     if not results_path.exists():
         print(f"[Warning] results.csv를 찾을 수 없습니다: {results_csv_path}")
-        return
+        return None
     
     try:
         # Load the training log
@@ -72,7 +43,6 @@ def print_best_epoch_info(results_csv_path):
         
         # Find the epoch with the highest fitness
         best_idx = results['fitness'].idxmax()
-        global best_epoch 
         best_epoch = int(results.loc[best_idx, 'epoch'])
         best_fitness = results.loc[best_idx, 'fitness']
         best_mAP50 = results.loc[best_idx, 'metrics/mAP50(B)']
@@ -101,67 +71,56 @@ def print_best_epoch_info(results_csv_path):
             print(f"{marker} Epoch {int(row['epoch']):2d}  |  Fitness: {row['fitness']:.6f}  |  mAP50-95: {row['metrics/mAP50-95(B)']:.5f}  |  mAP50: {row['metrics/mAP50(B)']:.5f}  |  Recall: {row['metrics/recall(B)']:.5f}")
         print("=" * 70)
         
+        return best_epoch
+        
     except Exception as e:
         print(f"[Warning] Best epoch 정보 출력 중 오류 발생: {e}")
+        return None
 
 
-def main():
+def main(cfg):
     """메인 실행 함수"""
+    # Train name 생성
+    train_name = f"yolo26s_{cfg.version}_e{cfg.epochs}_b{cfg.batch_size}"
     
     print("=" * 70)
     print("YOLOv26s Vehicle Detection - Training")
     print("=" * 70)
+    print(f"버전: {cfg.version}")
     print()
-    
-    # # ========== Wandb 초기화 ==========
-    # wandb_run = wandb.init(
-    # project=TRAIN_PROJECT,
-    # entity="cv_11",
-    # name=TRAIN_NAME,
-    # config={
-    #     "model": "YOLOv26s",
-    #     "epochs": EPOCHS,
-    #     "batch": BATCH_SIZE,
-    #     "imgsz": IMAGE_SIZE,
-    #     "seed": SEED,
-    #     }
-    # )
-    # print(f"✓ Wandb 초기화 완료: {WANDB_PROJECT}/{WANDB_RUN_NAME}")
-    # print()
     
     # ========== Step 1: 모델 로드 ==========
     print("[Step 1] Pretrained YOLOv26s 모델 로드")
     print("-" * 70)
     
-    model = YOLO(MODEL_WEIGHT)
+    model = YOLO(cfg.model_weight)
     print(f"✓ 모델 로드 완료: {model.model_name}")
     print()
     
     # ========== Step 2: Training ==========
-    print(f"[Step 2] Vehicle 데이터셋으로 Fine-tuning ({EPOCHS} epoch)")
+    print(f"[Step 2] Vehicle 데이터셋으로 Fine-tuning ({cfg.epochs} epoch)")
     print("-" * 70)
-    print(f"데이터셋: {DATASET_CONFIG}")
-    print(f"Epochs: {EPOCHS}")
-    print(f"Image size: {IMAGE_SIZE}")
-    print(f"Batch size: {BATCH_SIZE}")
-    print(f"Train 데이터: {TRAIN_IMAGE_DIR}")
-    print(f"Validation 데이터: {VAL_IMAGE_DIR}")
+    print(f"데이터셋 설정: {cfg.dataset_config}")
+    print(f"Epochs: {cfg.epochs}")
+    print(f"Image size: {cfg.image_size}")
+    print(f"Batch size: {cfg.batch_size}")
+    print(f"※ 데이터 경로는 {cfg.dataset_config}에 정의되어 있습니다.")
     print("※ Validation은 학습 중 자동으로 수행됩니다.")
     print()
     
     # vehicle dataset으로 파인튜닝
     train_results = model.train(
-        data=DATASET_CONFIG,
-        epochs=EPOCHS,
-        imgsz=IMAGE_SIZE,
-        batch=BATCH_SIZE,
-        project=TRAIN_PROJECT,
-        name=TRAIN_NAME,
+        data=cfg.dataset_config,
+        epochs=cfg.epochs,
+        imgsz=cfg.image_size,
+        batch=cfg.batch_size,
+        project=cfg.train_project,
+        name=train_name,
         exist_ok=True,
         pretrained=True,  # pretrained weight 유지
         verbose=True,
-        amp=USE_AMP,
-        seed=SEED,
+        amp=cfg.use_amp,
+        seed=cfg.seed,
     )
     
     print()
@@ -170,42 +129,30 @@ def main():
     print("=" * 70)
     print()
     print("📁 저장된 파일:")
-    print(f"  - 모델 가중치: runs/detect/{TRAIN_PROJECT}/{TRAIN_NAME}/weights/best.pt")
-    print(f"  - 학습 로그: runs/detect/{TRAIN_PROJECT}/{TRAIN_NAME}/")
-    print(f"  - Validation 결과: runs/detect/{TRAIN_PROJECT}/{TRAIN_NAME}/val_*.jpg")
+    print(f"  - 모델 가중치: runs/detect/{cfg.train_project}/{train_name}/weights/best.pt")
+    print(f"  - 학습 로그: runs/detect/{cfg.train_project}/{train_name}/")
+    print(f"  - Validation 결과: runs/detect/{cfg.train_project}/{train_name}/val_*.jpg")
     
     # Best epoch 정보 출력
-    results_csv_path = f"runs/detect/{TRAIN_PROJECT}/{TRAIN_NAME}/results.csv"
-    print_best_epoch_info(results_csv_path)
+    results_csv_path = f"runs/detect/{cfg.train_project}/{train_name}/results.csv"
+    best_epoch = print_best_epoch_info(results_csv_path)
 
 
     # ========== Step 3: Test Set Evaluation (best.pt) ==========
     print("[Step 3] Test set evaluation with best.pt")
     print("-" * 70)
 
-    best_model_path = f"runs/detect/{TRAIN_PROJECT}/{TRAIN_NAME}/weights/best.pt"
+    best_model_path = f"runs/detect/{cfg.train_project}/{train_name}/weights/best.pt"
     best_model = YOLO(best_model_path)
 
     test_metrics = best_model.val(
-        data=DATASET_CONFIG,
+        data=cfg.dataset_config,
         split="test",
-        imgsz=IMAGE_SIZE,
-        batch=BATCH_SIZE,
+        imgsz=cfg.image_size,
+        batch=cfg.batch_size,
     )
 
     print("✓ Test evaluation 완료")
-    # print(test_metrics.results_dict)
-
-
-    # print()
-    # print("💡 추론을 수행하려면 다음 명령을 실행하세요:")
-    # print(f"   python yolo26s_inference.py")
-    # print()
-    # print("=" * 70)
-    
-    # # Wandb 종료
-    # wandb.finish()
-    # print("\n✓ Wandb 로깅 완료")
 
     test_metrics_dict = test_metrics.results_dict
 
@@ -214,7 +161,7 @@ def main():
         print(f"{k}: {v:.5f}")
 
     # Test 결과를 CSV 파일로 저장
-    test_results_csv_path = f"runs/detect/{TRAIN_PROJECT}/{TRAIN_NAME}/results_test_set.csv"
+    test_results_csv_path = f"runs/detect/{cfg.train_project}/{train_name}/results_test_set.csv"
     test_results_df = pd.DataFrame([{
         'best_epoch': best_epoch,
         'test/precision': test_metrics_dict["metrics/precision(B)"],
@@ -224,15 +171,14 @@ def main():
         'test/fitness': test_metrics_dict["fitness"],
     }])
     test_results_df.to_csv(test_results_csv_path, index=False)
-    # print()
-    # print(f"✓ Test 결과 저장: {test_results_csv_path}")
-    # print()
 
+    ### 이거 wandb assume 제대로 안 되면 그냥 wandb logging은 포기하고 주석처리하기 ###
+    # Wandb에 Test 결과 로깅
     wandb.init(
-        project=TRAIN_PROJECT,
-        entity="cv_11",
-        name=TRAIN_NAME,
-        resume="allow",   # ⭐ 핵심
+        project=cfg.train_project,
+        entity=cfg.wandb_entity,
+        name=train_name,
+        resume="allow",
     )
 
     # wandb에 명시적으로 기록
@@ -244,7 +190,7 @@ def main():
             "test/mAP50-95": test_metrics_dict["metrics/mAP50-95(B)"],
             "test/fitness": test_metrics_dict["fitness"],
         },
-        step=best_epoch,  # train 마지막 epoch 기준
+        step=best_epoch if best_epoch is not None else cfg.epochs,
     )
 
     # summary에도 남기기 (run 페이지 상단에 고정)
@@ -257,5 +203,20 @@ def main():
     print("✓ Wandb 로깅 완료")
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(description='YOLO Training with YAML config')
+    parser.add_argument('config', type=str, help='YAML 설정 파일 경로')
+    
+    args = parser.parse_args()
+    
+    # YAML 설정 로드
+    cfg = OmegaConf.load(args.config)
+    
+    # .env에서 Wandb API key 로드
+    load_dotenv()
+    WANDB_API_KEY = os.getenv('WANDB_API_KEY')
+    os.environ["WANDB_API_KEY"] = WANDB_API_KEY
+    os.environ["WANDB_ENTITY"] = cfg.get('wandb_entity', 'cv_11')
+    wandb.login()
+    
+    main(cfg)
 

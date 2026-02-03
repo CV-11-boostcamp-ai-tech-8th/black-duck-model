@@ -47,3 +47,5 @@ yolo settings wandb=True
 # 그 외 설치들
 apt install git
 apt install tmux
+
+pip install ffmpeg
