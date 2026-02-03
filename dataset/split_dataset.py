@@ -11,6 +11,9 @@ from collections import defaultdict
 
 # ========== 설정 ==========
 DATASET_ROOT = "/data/ephemeral/home/dataset/flatten_car_road_dataset_bb"
+TARGET_TEST_SCENES = 10  # Test set 장면 개수
+TARGET_RATIO_MIN = 0.05  # 최소 이미지 비율 (5%)
+TARGET_RATIO_MAX = 0.06  # 최대 이미지 비율 (6%)
 SEED = 42
 random.seed(SEED)
 
@@ -110,7 +113,7 @@ def main():
     print("📦 데이터셋 분할 (Train → Test)")
     print("=" * 70)
     print(f"현재: Train 95%, Val 5%")
-    print(f"목표: Train 90%, Val 5%, Test 5%")
+    print(f"목표: {TARGET_TEST_SCENES}개 장면 + {TARGET_RATIO_MIN*100:.0f}~{TARGET_RATIO_MAX*100:.0f}% 이미지 비율")
     print(f"Random Seed: {SEED}")
     print()
     
@@ -134,43 +137,75 @@ def main():
     print(f"  - Val:   {val_scene_count}개 장면, {val_image_count}개 이미지 (유지)")
     print()
     
-    # Step 3: 분할 계산 (이미지 개수 기준으로 5%에 가장 가까운 장면 조합 찾기)
+    # Step 3: 분할 계산
     print("🎯 Step 2: Test 분할 계산...")
     
     # 전체 장면 수
     total_scenes = train_scene_count + val_scene_count
     total_images = train_image_count + val_image_count
     
-    # 목표: 전체의 5%를 Test로
-    target_test_images = int(total_images * 0.05)
+    # 목표 범위
+    target_min_images = int(total_images * TARGET_RATIO_MIN)
+    target_max_images = int(total_images * TARGET_RATIO_MAX)
     
     print(f"  - 전체: {total_scenes}개 장면, {total_images}개 이미지")
-    print(f"  - 목표 Test 이미지: {target_test_images}개 (5%)")
+    print(f"  - 목표: {TARGET_TEST_SCENES}개 장면, {target_min_images}~{target_max_images}개 이미지")
     print()
     
-    # Step 4: 랜덤 선택 (이미지 개수 기준으로 5%에 가깝게)
-    print("🎲 Step 3: 장면 선택 (이미지 개수 기준)...")
+    # Step 4: 조건을 만족하는 장면 조합 찾기
+    print("🎲 Step 3: 장면 선택 (조건 만족할 때까지 랜덤 샘플링)...")
     
-    scene_ids = list(train_scenes.keys())
-    random.shuffle(scene_ids)
+    # 장면 정보 수집
+    scene_items = [(scene_id, len(train_scenes[scene_id]['images'])) 
+                   for scene_id in train_scenes.keys()]
     
-    # 탐욕적으로 5%에 가까운 장면 조합 찾기
+    # 프레임 수 통계
+    frame_counts = [count for _, count in scene_items]
+    min_frames = min(frame_counts)
+    max_frames = max(frame_counts)
+    avg_frames = sum(frame_counts) / len(frame_counts)
+    
+    print(f"  - 장면당 프레임 수: 최소 {min_frames}개, 최대 {max_frames}개, 평균 {avg_frames:.1f}개")
+    print(f"  - 전략: {TARGET_TEST_SCENES}개 장면 랜덤 선택, {TARGET_RATIO_MIN*100:.0f}~{TARGET_RATIO_MAX*100:.0f}% 조건 만족까지 반복")
+    print()
+    
+    # 조건 만족할 때까지 반복
+    max_attempts = 10000
+    attempt = 0
     test_scene_ids = []
-    current_test_images = 0
+    test_image_count = 0
     
-    for scene_id in scene_ids:
-        scene_image_count = len(train_scenes[scene_id]['images'])
+    print(f"  🔄 조건 만족하는 조합 탐색 중...")
+    
+    while attempt < max_attempts:
+        attempt += 1
         
-        # 현재 장면을 추가했을 때 목표에 더 가까워지면 추가
-        if current_test_images + scene_image_count <= target_test_images * 1.15:  # 15% 여유
-            test_scene_ids.append(scene_id)
-            current_test_images += scene_image_count
-            
-            # 목표에 충분히 가까우면 중단
-            if current_test_images >= target_test_images * 0.95:  # 95% 이상이면 OK
-                break
+        # 장면 랜덤 섞기
+        random.shuffle(scene_items)
+        
+        # 앞에서 TARGET_TEST_SCENES개 선택
+        selected_scenes = scene_items[:TARGET_TEST_SCENES]
+        selected_ids = [scene_id for scene_id, _ in selected_scenes]
+        selected_images = sum(count for _, count in selected_scenes)
+        
+        # 조건 체크
+        if target_min_images <= selected_images <= target_max_images:
+            test_scene_ids = selected_ids
+            test_image_count = selected_images
+            print(f"  ✓ 조건 만족! ({attempt}번째 시도)")
+            print(f"    - 선택된 장면: {len(test_scene_ids)}개")
+            print(f"    - 총 이미지: {test_image_count}개 ({test_image_count/total_images*100:.2f}%)")
+            break
+        
+        # 진행상황 출력 (100번마다)
+        if attempt % 100 == 0:
+            print(f"    시도 {attempt}회... (최근: {selected_images}개, {selected_images/total_images*100:.2f}%)")
     
-    test_image_count = current_test_images
+    if attempt >= max_attempts:
+        print(f"  ⚠️  경고: {max_attempts}번 시도 후에도 조건을 만족하는 조합을 찾지 못했습니다.")
+        print(f"    - 가장 가까운 결과 사용: {test_image_count}개 ({test_image_count/total_images*100:.2f}%)")
+    
+    print()
     
     print(f"  - Test용: {len(test_scene_ids)}개 장면 선택 (약 {test_image_count}개 이미지)")
     print(f"  - Train 잔여: {train_scene_count - len(test_scene_ids)}개 장면")
@@ -186,6 +221,18 @@ def main():
     print(f"  - Train: {final_train_images:>6,}개 이미지 ({final_train_images/final_total_images*100:>5.1f}%)")
     print(f"  - Val:   {final_val_images:>6,}개 이미지 ({final_val_images/final_total_images*100:>5.1f}%)")
     print(f"  - Test:  {final_test_images:>6,}개 이미지 ({final_test_images/final_total_images*100:>5.1f}%)")
+    print()
+    
+    # 최종 비율 예상 (장면 기준)
+    print("📊 예상 최종 비율 (장면 기준):")
+    final_train_scenes = train_scene_count - len(test_scene_ids)
+    final_val_scenes = val_scene_count
+    final_test_scenes = len(test_scene_ids)
+    final_total_scenes = final_train_scenes + final_val_scenes + final_test_scenes
+    
+    print(f"  - Train: {final_train_scenes:>4}개 장면 ({final_train_scenes/final_total_scenes*100:>5.1f}%)")
+    print(f"  - Val:   {final_val_scenes:>4}개 장면 ({final_val_scenes/final_total_scenes*100:>5.1f}%)")
+    print(f"  - Test:  {final_test_scenes:>4}개 장면 ({final_test_scenes/final_total_scenes*100:>5.1f}%)")
     print()
     
     # Step 5: 확인

@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # TensorRT 변환 스크립트
-# 사용법: bash export_tensorrt.sh [fp32|fp16|int8]
+# 사용법: source tensorrt.sh
 
 MODEL_PATH="/data/ephemeral/home/shared_files/idx4_yolo26x.pt"
-PRECISION=${1:-fp32}  # 기본값: fp32
+PRECISION="int8"
 
 echo "========================================================================"
 echo "YOLOv26 TensorRT 변환 스크립트"

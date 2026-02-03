@@ -12,3 +12,4 @@ yolo26m.pt
 yolo26x.pt
 wandb/
 logs/
+__pycache__/

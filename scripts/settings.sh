@@ -60,4 +60,12 @@ tar xf ffmpeg-release-amd64-static.tar.xz
 
 pip install onnx==1.14.0
 pip install onnxruntime-gpu==1.15.1
-pip install onnxsim==0.4.36
+# pip install onnxsim==0.4.36
+pip install onnxslim>=0.1.71
+
+# pip install tensorrt
+# pip install nvidia-pyindex
+# pip install nvidia-tensorrt
+
+pip install pandas
+pip install omegaconf

@@ -14,7 +14,7 @@ PROJECT_ROOT=$(pwd)
 
 # 실행할 config 파일 목록 (순서대로 실행)
 CONFIGS=(
-    "configs/train/idx1.yaml"
+    "configs/train/idx10.yaml"
     # "configs/train/idx2.yaml"
     # "configs/train/idx3.yaml"
 )
