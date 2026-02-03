@@ -48,4 +48,16 @@ yolo settings wandb=True
 apt install git
 apt install tmux
 
-pip install ffmpeg
+# pip install ffmpeg
+# 아래 코드 따라하면 설치됨.
+mkdir -p ~/bin
+cd ~/bin
+apt install wget 
+wget https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
+tar xf ffmpeg-release-amd64-static.tar.xz
+~/bin/ffmpeg-*/ffmpeg -version
+~/bin/ffmpeg-*/ffmpeg -encoders | grep x264
+
+pip install onnx==1.14.0
+pip install onnxruntime-gpu==1.15.1
+pip install onnxsim==0.4.36
