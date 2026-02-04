@@ -16,7 +16,7 @@ from pathlib import Path
 from collections import defaultdict
 from ultralytics import YOLO
 from omegaconf import OmegaConf
-from huggingface_hub import hf_hub_download
+# from huggingface_hub import hf_hub_download
 
 
 def convert_avi_to_mp4(avi_path):

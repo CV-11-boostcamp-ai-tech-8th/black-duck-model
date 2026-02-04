@@ -4,6 +4,7 @@
 YOLOv26s Vehicle Detection - Training
 - pretrained YOLOv26s를 vehicle 데이터셋으로 파인튜닝
 - 모든 설정은 YAML 파일을 통해 전달됨
+- Albumentations 지원 (동적 로드)
 """
 
 import os
@@ -14,6 +15,13 @@ import wandb
 from dotenv import load_dotenv
 import pandas as pd
 from omegaconf import OmegaConf
+
+try:
+    import albumentations as A
+    ALBUMENTATIONS_AVAILABLE = True
+except ImportError:
+    ALBUMENTATIONS_AVAILABLE = False
+    A = None
 
 
 def print_best_epoch_info(results_csv_path):
@@ -104,24 +112,64 @@ def main(cfg):
     print(f"Epochs: {cfg.epochs}")
     print(f"Image size: {cfg.image_size}")
     print(f"Batch size: {cfg.batch_size}")
+    
+    # Training 파라미터 구성
+    train_params = {
+        'data': cfg.dataset_config,
+        'epochs': cfg.epochs,
+        'imgsz': cfg.image_size,
+        'batch': cfg.batch_size,
+        'project': cfg.train_project,
+        'name': train_name,
+        'exist_ok': True,
+        'pretrained': True,
+        'verbose': True,
+        'amp': cfg.use_amp,
+        'seed': cfg.seed,
+    }
+    
+    # Albumentations 설정 확인 및 적용 (동적 로드 방식)
+    if cfg.get('albumentations', None) and ALBUMENTATIONS_AVAILABLE:
+        print()
+        print("🎨 Data Augmentation: ✓ Albumentations 적용됨")
+        print("-" * 70)
+        
+        try:
+            # Albumentations transforms를 동적으로 생성
+            transforms_list = [
+                getattr(A, aug)(**params)
+                for aug, params in cfg.albumentations.items()
+            ]
+            
+            # 적용된 transforms 출력
+            for aug, params in cfg.albumentations.items():
+                param_str = ", ".join([f"{k}={v}" for k, v in params.items()])
+                print(f"  • {aug}: {param_str}")
+            
+            print("-" * 70)
+            print(f"✓ 총 {len(transforms_list)}개의 Albumentations transforms 적용")
+            
+            # Albumentations transforms를 training params에 추가
+            train_params['augmentations'] = transforms_list
+            
+        except AttributeError as e:
+            print(f"❌ Albumentations transform 로드 오류: {e}")
+            print("   사용 가능한 transform인지 확인하세요.")
+            print("   참고: https://albumentations.ai/docs/")
+    elif cfg.get('albumentations', None) and not ALBUMENTATIONS_AVAILABLE:
+        print()
+        print("❌ Albumentations 설정이 있지만 라이브러리가 설치되지 않았습니다")
+        print("   설치: pip install albumentations")
+    else:
+        print("🎨 Data Augmentation: YOLO 기본값 사용")
+    
+    print()
     print(f"※ 데이터 경로는 {cfg.dataset_config}에 정의되어 있습니다.")
     print("※ Validation은 학습 중 자동으로 수행됩니다.")
     print()
     
     # vehicle dataset으로 파인튜닝
-    train_results = model.train(
-        data=cfg.dataset_config,
-        epochs=cfg.epochs,
-        imgsz=cfg.image_size,
-        batch=cfg.batch_size,
-        project=cfg.train_project,
-        name=train_name,
-        exist_ok=True,
-        pretrained=True,  # pretrained weight 유지
-        verbose=True,
-        amp=cfg.use_amp,
-        seed=cfg.seed,
-    )
+    train_results = model.train(**train_params)
     
     print()
     print("=" * 70)
@@ -155,10 +203,21 @@ def main(cfg):
     print("✓ Test evaluation 완료")
 
     test_metrics_dict = test_metrics.results_dict
+    
+    # Fitness 직접 계산: 0.1 × mAP50 + 0.9 × mAP50-95
+    test_mAP50 = test_metrics_dict["metrics/mAP50(B)"]
+    test_mAP50_95 = test_metrics_dict["metrics/mAP50-95(B)"]
+    test_fitness = 0.1 * test_mAP50 + 0.9 * test_mAP50_95
 
+    print()
     print("[Test metrics]")
-    for k, v in test_metrics_dict.items():
-        print(f"{k}: {v:.5f}")
+    print("-" * 70)
+    print(f"Precision:     {test_metrics_dict['metrics/precision(B)']:.5f}")
+    print(f"Recall:        {test_metrics_dict['metrics/recall(B)']:.5f}")
+    print(f"mAP50:         {test_mAP50:.5f}")
+    print(f"mAP50-95:      {test_mAP50_95:.5f}")
+    print(f"Fitness:       {test_fitness:.5f}  (= 0.1×mAP50 + 0.9×mAP50-95)")
+    print("-" * 70)
 
     # Test 결과를 CSV 파일로 저장
     test_results_csv_path = f"runs/detect/{cfg.train_project}/{train_name}/results_test_set.csv"
@@ -166,41 +225,13 @@ def main(cfg):
         'best_epoch': best_epoch,
         'test/precision': test_metrics_dict["metrics/precision(B)"],
         'test/recall': test_metrics_dict["metrics/recall(B)"],
-        'test/mAP50': test_metrics_dict["metrics/mAP50(B)"],
-        'test/mAP50-95': test_metrics_dict["metrics/mAP50-95(B)"],
-        'test/fitness': test_metrics_dict["fitness"],
+        'test/mAP50': test_mAP50,
+        'test/mAP50-95': test_mAP50_95,
+        'test/fitness': test_fitness,
     }])
     test_results_df.to_csv(test_results_csv_path, index=False)
-
-    ### 이거 wandb assume 제대로 안 되면 그냥 wandb logging은 포기하고 주석처리하기 ###
-    # Wandb에 Test 결과 로깅
-    wandb.init(
-        project=cfg.train_project,
-        entity=cfg.wandb_entity,
-        name=train_name,
-        resume="allow",
-    )
-
-    # wandb에 명시적으로 기록
-    wandb.log(
-        {
-            "test/precision": test_metrics_dict["metrics/precision(B)"],
-            "test/recall": test_metrics_dict["metrics/recall(B)"],
-            "test/mAP50": test_metrics_dict["metrics/mAP50(B)"],
-            "test/mAP50-95": test_metrics_dict["metrics/mAP50-95(B)"],
-            "test/fitness": test_metrics_dict["fitness"],
-        },
-        step=best_epoch if best_epoch is not None else cfg.epochs,
-    )
-
-    # summary에도 남기기 (run 페이지 상단에 고정)
-    wandb.summary["test/mAP50"] = test_metrics_dict["metrics/mAP50(B)"]
-    wandb.summary["test/mAP50-95"] = test_metrics_dict["metrics/mAP50-95(B)"]
-    wandb.summary["test/precision"] = test_metrics_dict["metrics/precision(B)"]
-    wandb.summary["test/recall"] = test_metrics_dict["metrics/recall(B)"]
-    
-    wandb.finish()
-    print("✓ Wandb 로깅 완료")
+    print(f"✓ Test 결과 저장 완료: {test_results_csv_path}")
+    print()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='YOLO Training with YAML config')

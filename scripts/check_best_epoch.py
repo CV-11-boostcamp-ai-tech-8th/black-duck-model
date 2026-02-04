@@ -9,7 +9,7 @@ import pandas as pd
 import sys
 from pathlib import Path
 
-DEFAULT_PATH = "runs/detect/cv-11-final/yolo26l_v1_e40_b40/results.csv"
+DEFAULT_PATH = "/data/ephemeral/home/jsw/black-duck-model/runs/detect/cv-11-final/yolo26s_idx10_e40_b64/results.csv"
 
 
 def check_best_epoch(results_csv_path):
