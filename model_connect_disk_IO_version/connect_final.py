@@ -338,7 +338,7 @@ def run_model(
         
         # 3-2) OCR 수행
         try:
-            from ocr.interface_final__ import detect_license_plate
+            from ocr.interface_final import detect_license_plate
         except ImportError as e:
             raise RuntimeError(f"ocr 모듈을 import할 수 없습니다: {e}")
         
