@@ -29,11 +29,34 @@ python connect_final.py \
 
 
 ## Project Structure
-```
-tree 구조 - rjy -> 개별 workspace는 workspace 안에 하기.
+```bash
+model_connect/ (Root)
+├── ocr/                   # 이미지 처리 및 문자 인식 패키지
+│   ├── models/            # AI 모델 아키텍처 정의
+│   ├── __init__.py
+│   └── network_swinir.py  # SwinIR(이미지 고해상도화) 모델
+├── interface_final.py     # SwinIR + OCR 통합 인터페이스
+├── sudden_stop/           # 급제동 감지 모듈
+│   ├── __init__.py
+│   ├── brake_detector.py  # 감속 및 브레이크 감지 알고리즘
+│   └── config.py          # 감지 임계값 설정
+├── main.py                # 모듈 실행 메인
+├── utils.py               # 유틸리티 도구
+├── scripts/               # 실행 및 환경별 테스트 스크립트
+│   ├── connect_final.py   # 스크립트 기반 실행 파일
+│   └── test_all_videos.sh
+├── connect_final_sudden_*.py
+├── connect_test.py
+└── connect_final.py       # 최상위 통합 실행 엔트리 포인트
 ```
 ### 주요 폴더 설명
 
 
 ## 만든 사람
-표(web 파트 참고) - kmj
+| Model & Dataset | Algorithm & Dataset | Model & Dataset |
+|:---:|:---:|:---:|
+| <img src="https://github.com/M1niJ.png" width="120"> | <img src="https://github.com/uss0302-cmd.png" width="120"> | <img src="https://github.com/cuffyluv.png" width="120"> |
+| [김민진](https://github.com/M1niJ) | [류제윤](https://github.com/uss0302-cmd) | [주상우](https://github.com/cuffyluv) |
+| minjin0313b@gmail.com | uss0302@gmail.com | cuffyluv.1@gmail.com |
+| Detection & OCR | Sudden Brake Algorithm | Detection & Tracking |
+
