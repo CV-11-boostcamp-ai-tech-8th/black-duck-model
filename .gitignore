@@ -1,0 +1,11 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[codz]
+*$py.class
+
+secret/
+plans/
+
+.env
+ssh_input/
+ssh_output/
