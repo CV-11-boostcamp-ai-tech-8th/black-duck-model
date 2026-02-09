@@ -47,4 +47,10 @@ model_connect/ (Root)
 
 
 ## 만든 사람
-표(web 파트 참고) - kmj
+| Model & Dataset | Algorithm & Dataset | Model & Dataset |
+|:---:|:---:|:---:|
+| <img src="https://github.com/M1niJ.png" width="120"> | <img src="https://github.com/uss0302-cmd.png" width="120"> | <img src="https://github.com/cuffyluv.png" width="120"> |
+| [김민진](https://github.com/M1niJ) | [류제윤](https://github.com/uss0302-cmd) | [주상우](https://github.com/cuffyluv) |
+| minjin0313b@gmail.com | uss0302@gmail.com | cuffyluv.1@gmail.com |
+| Detection & OCR | Sudden Brake Algorithm | Detection & Tracking |
+
