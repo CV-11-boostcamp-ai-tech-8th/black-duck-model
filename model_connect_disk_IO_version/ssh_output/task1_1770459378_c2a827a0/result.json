@@ -1,0 +1,16 @@
+{
+  "job_id": "task1_1770459378_c2a827a0",
+  "task_id": 1,
+  "video_id": 1,
+  "input_file": "/data/ephemeral/home/dataset/급정거_2.mp4",
+  "results": [
+    {
+      "event_type_id": 1,
+      "clip_path": "/data/ephemeral/home/model_connect/ssh_output/task1_1770459378_c2a827a0/clip_1/clip_1.mp4",
+      "thumbnail_img": "/data/ephemeral/home/model_connect/ssh_output/task1_1770459378_c2a827a0/clip_1/clip_1.jpg",
+      "occurred_time": "2026-02-09T22:14:27.308310+00:00",
+      "license_plate_img": "/data/ephemeral/home/model_connect/ssh_output/task1_1770459378_c2a827a0/clip_1/license_plate_image.png",
+      "license_plate_text": "23거9518"
+    }
+  ]
+}

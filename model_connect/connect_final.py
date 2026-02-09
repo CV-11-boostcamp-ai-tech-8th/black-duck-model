@@ -351,12 +351,33 @@ def run_model(
     clip_results = []
     
     for clip in clips:
-        # OCR 수행 (메모리 기반)
+        # OCR 수행 (clip_output_dir은 detect_and_recognize 내부에서 필요할 수 있으므로 임시 디렉토리 생성)
+        clip_output_dir = out_dir / f"clip_{clip.clip_id}"
+        clip_output_dir.mkdir(parents=True, exist_ok=True)
+        
         plate_result = detect_license_plate(
             vehicle_crops=clip.vehicle_crops,
-            clip_output_dir=None,  # 디스크 저장 안 함
-            save_to_disk=False,  # 메모리에만 저장
+            clip_output_dir=clip_output_dir,
         )
+        
+        # plate_result에서 이미지와 텍스트를 메모리로 로드
+        plate_image = None
+        plate_text = None
+        if plate_result:
+            # 이미지 파일 읽기
+            if hasattr(plate_result, 'plate_image_path') and plate_result.plate_image_path:
+                plate_image_path = Path(plate_result.plate_image_path)
+                if plate_image_path.exists():
+                    plate_image = cv2.imread(str(plate_image_path))
+                    if plate_image is not None:
+                        plate_image = cv2.cvtColor(plate_image, cv2.COLOR_BGR2RGB)  # BGR -> RGB
+            
+            # 텍스트 파일 읽기
+            if hasattr(plate_result, 'plate_text_path') and plate_result.plate_text_path:
+                plate_text_path = Path(plate_result.plate_text_path)
+                if plate_text_path.exists():
+                    with open(plate_text_path, 'r', encoding='utf-8') as f:
+                        plate_text = f.read().strip()
         
         # clip 결과 구성
         clip_result = {
@@ -364,8 +385,8 @@ def run_model(
             "video_frames": clip.video_frames,  # 메모리에 저장
             "thumbnail": clip.thumbnail,  # 메모리에 저장
             "vehicle_crops": clip.vehicle_crops,  # 메모리에 저장
-            "plate_image": plate_result.plate_image if plate_result else None,  # 메모리에 저장
-            "plate_text": plate_result.plate_text if plate_result else None,  # 메모리에 저장
+            "plate_image": plate_image,  # 메모리에 저장 (numpy array)
+            "plate_text": plate_text,  # 메모리에 저장 (string)
             "fps": clip.fps,  # 프레임레이트
         }
         

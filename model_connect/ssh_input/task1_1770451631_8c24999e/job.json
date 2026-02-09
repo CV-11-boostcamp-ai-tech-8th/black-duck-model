@@ -1,0 +1,1 @@
+{"job_id": "task1_1770451631_8c24999e", "task_id": 1, "video_id": 1, "event_type_ids": [1], "input_path": "/data/ephemeral/home/model_connect/ssh_input/task1_1770451631_8c24999e/input.mp4", "out_root": "/data/ephemeral/home/model_connect/ssh_output", "input_url": "https://storage.googleapis.com/path/to/gcs"}

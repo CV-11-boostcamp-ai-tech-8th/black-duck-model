@@ -1,0 +1,10 @@
+{
+  "job_id": "task1_1770459378_c2a827a0",
+  "task_id": 1,
+  "video_id": 1,
+  "event_type_ids": [
+    1
+  ],
+  "input_path": "/data/ephemeral/home/dataset/급정거_2.mp4",
+  "out_root": "/data/ephemeral/home/model_connect/ssh_output"
+}
