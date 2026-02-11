@@ -386,8 +386,8 @@ def detect_license_plate(
         번호판 결과 LicensePlateResult 객체 반환(없으면 None)
     """
     detector = LicensePlateDetector(
-        yolo_model_path='/data/ephemeral/home/shared_files/plate/yolo26x_best.pt',
-        swinir_model_path='/data/ephemeral/home/shared_files/plate/SwinIR-L.pth',
+        yolo_model_path='/data/ephemeral/home/black-duck-model/models/plate_detection/yolo26x_best.pt',
+        swinir_model_path='/data/ephemeral/home/black-duck-model/models/plate_ocr/SwinIR-L.pth',
         use_enhancement=True
     )
     

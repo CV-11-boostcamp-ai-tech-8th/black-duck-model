@@ -1,0 +1,49 @@
+version: "idx13"
+model_weight: "./yolo26s.pt"
+dataset_config: "configs/yolo/vehicle_dataset.yaml"
+
+# Training hyperparameters
+epochs: 40  
+image_size: 640
+batch_size: 64
+use_amp: true
+seed: 42
+
+# Project settings
+train_project: "cv-11-final"
+
+# Wandb settings
+wandb_entity: "cv_11"
+
+# Albumentations Data Augmentation (블랙박스 주간 환경 최적화)
+# getattr(A, transform_name)(**params) 방식으로 동적 로드
+albumentations:
+  # 밝기/대비 조정 (햇빛, 그늘, 터널 진출입 대응)
+  RandomBrightnessContrast:
+    brightness_limit: 0.3
+    contrast_limit: 0.3
+    p: 0.6
+  
+  # 색상/채도 조정 (날씨, 조명 변화)
+  HueSaturationValue:
+    hue_shift_limit: 10
+    sat_shift_limit: 30
+    val_shift_limit: 30
+    p: 0.5
+  
+  # CLAHE (대비 향상 - 어두운 영역 디테일 강화)
+  CLAHE:
+    clip_limit: 4.0
+    tile_grid_size: [8, 8]
+    p: 0.4
+  
+  # 약간의 블러 (모션 블러, 초점 흐림 시뮬레이션)
+  Blur:
+    blur_limit: 5
+    p: 0.1
+  
+  # 노이즈 추가 (센서 노이즈 시뮬레이션)
+  GaussNoise:
+    var_limit: [10.0, 50.0]
+    p: 0.15
+

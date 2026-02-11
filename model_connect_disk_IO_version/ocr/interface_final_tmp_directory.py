@@ -112,7 +112,7 @@ def detect_license_plate(
         return None
 
     # 1. 차량 이미지에서 번호판 검출
-    model = YOLO('/data/ephemeral/home/shared_files/plate/yolo26x_best.pt')
+    model = YOLO('/data/ephemeral/home/black-duck-model/models/plate_detection/yolo26x_best.pt')
         
     plate_crops = []
     

@@ -4,7 +4,7 @@ import os
 
 # [경로 설정]
 VIDEO_PATH = "/data/ephemeral/home/dataset/20260115-11h38m24s_N.avi" 
-MODEL_WEIGHT = "/data/ephemeral/home/shared_files/idx20_yolo26x.pt"
+MODEL_WEIGHT = "/data/ephemeral/home/black-duck-model/models/car_detection/idx20_yolo26x.pt"
 TRACKER_YAML = "/data/ephemeral/home/shared_files/bytetrack.yaml"
 SAVE_DIR = "runs/final_result"
 
