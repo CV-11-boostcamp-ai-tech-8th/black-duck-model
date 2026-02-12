@@ -1,6 +1,5 @@
 # black-duck-model
-- CV-11 model submodule
-- Person in Charge: kmj, rjy, jsw
+- yolo26x 학습 및 실험을 위해 사용한 workspace
 
 # files explanation
 ## main scripts

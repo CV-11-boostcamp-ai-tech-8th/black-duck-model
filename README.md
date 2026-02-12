@@ -3,15 +3,18 @@
 
 ## Quick Start
 ### 1. Prerequisites
-- versions
 ```bash
-(작성 예정)
+Python==3.10.13
+PyTorch==2.1.0
+Torchvision==0.16.0
+numpy==1.26.0
+# 그 외 라이브러리 의존성은 settings.sh 참고.
 ```
 - 가상환경 설정부터 시작할 경우:
 ```bash
 python -m venv py310
 source py310/bin/activate
-source requirements.sh
+source settings.sh
 ```
 ### 2. Run
 - 우선, `black-duck-web`의 backend 서버가 실행되어 있어야 함.
@@ -49,7 +52,7 @@ python connect_local_final.py \
 - 실행 방법은 memory version과 동일.
 
 ## Model Architecture
-
+- workspace/ 폴더 내의 각 `README.md`를 참고.
 
 ## Project Structure
 ```bash
