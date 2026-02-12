@@ -1,0 +1,17 @@
+version: "idx11"
+model_weight: "./yolo26s.pt"
+dataset_config: "configs/yolo/vehicle_dataset.yaml"
+
+# Training hyperparameters
+epochs: 40  
+image_size: 640
+batch_size: 64
+use_amp: true
+seed: 42
+
+# Project settings
+train_project: "cv-11-final"
+
+# Wandb settings
+wandb_entity: "cv_11"
+

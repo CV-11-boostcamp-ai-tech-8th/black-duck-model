@@ -1,0 +1,16 @@
+{
+  "job_id": "task1_1770451631_8c24999e",
+  "task_id": 1,
+  "video_id": 1,
+  "input_file": "/data/ephemeral/home/dataset/급정거_2.mp4",
+  "results": [
+    {
+      "event_type_id": 1,
+      "clip_path": null,
+      "thumbnail_img": null,
+      "occurred_time": "2026-02-07T12:28:10.524210+00:00",
+      "license_plate_img": null,
+      "license_plate_text": "23거9518"
+    }
+  ]
+}

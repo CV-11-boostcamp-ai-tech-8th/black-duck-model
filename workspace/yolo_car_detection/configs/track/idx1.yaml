@@ -1,0 +1,9 @@
+# Track Configuration - idx1
+version: "idx1"
+video_path: "/data/ephemeral/home/dataset/20260115-11h37m24s_N.avi"
+model_weight: "/data/ephemeral/home/shared_files/idx4_yolo26x.pt"
+conf_threshold: 0.25
+iou_threshold: 0.45
+tracker_type: "configs/yolo/bytetrack.yaml"
+convert_avi_to_mp4: true
+

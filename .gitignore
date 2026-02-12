@@ -1,0 +1,20 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[codz]
+*$py.class
+
+secret/
+plans/
+
+.env
+
+# test files
+model_connect_disk_IO_version/ssh_input/task1_1770459378_c2a827a1/
+model_connect_disk_IO_version/ssh_output/task1_1770459378_c2a827a1/
+
+model_connect/ssh_input/task1_1770451631_8c24999a
+model_connect/ssh_output/task1_1770451631_8c24999a
+
+models/plate_detection/
+models/car_detection/
+models/plate_ocr/
